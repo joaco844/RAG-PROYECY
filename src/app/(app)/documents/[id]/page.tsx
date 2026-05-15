@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import DocumentViewClient from "./DocumentViewClient";
 
 export default async function DocumentViewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,9 +24,11 @@ export default async function DocumentViewPage({ params }: { params: Promise<{ i
   });
 
   return (
-    <DocumentViewClient
-      doc={{ ...doc, createdAt: doc.createdAt.toISOString() }}
-      carpetas={carpetas}
-    />
+    <Suspense>
+      <DocumentViewClient
+        doc={{ ...doc, createdAt: doc.createdAt.toISOString() }}
+        carpetas={carpetas}
+      />
+    </Suspense>
   );
 }

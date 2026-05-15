@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
+  const projectId = formData.get("projectId") as string | null;
 
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
@@ -43,8 +44,9 @@ export async function POST(req: NextRequest) {
       fileSize: file.size,
       mimeType: file.type,
       userId: session.user.id,
+      ...(projectId && { projectId }),
     },
-    select: { id: true, name: true, fileSize: true, mimeType: true, createdAt: true },
+    select: { id: true, name: true, fileSize: true, mimeType: true, createdAt: true, projectId: true },
   });
 
   return NextResponse.json(document, { status: 201 });

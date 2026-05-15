@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Doc = {
@@ -30,6 +30,9 @@ export default function DocumentViewClient({ doc: initialDoc, carpetas }: { doc:
   const [form, setForm] = useState({ name: doc.name, notes: doc.notes ?? "", projectId: doc.projectId ?? "" });
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backHref = searchParams.get("from") ?? "/documents";
+  const backLabel = backHref.startsWith("/carpetas") ? "← Carpeta" : "← Documents";
 
   const isPdf = doc.mimeType === "application/pdf";
   const isImage = doc.mimeType.startsWith("image/");
@@ -72,8 +75,8 @@ export default function DocumentViewClient({ doc: initialDoc, carpetas }: { doc:
         {/* Card header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 28px", borderBottom: "1px solid var(--ghost-border)", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-            <Link href="/documents" style={{ fontSize: "11px", letterSpacing: "1.17px", color: "rgba(240,240,250,0.4)", textDecoration: "none" }}>
-              ← Documents
+            <Link href={backHref} style={{ fontSize: "11px", letterSpacing: "1.17px", color: "rgba(240,240,250,0.4)", textDecoration: "none" }}>
+              {backLabel}
             </Link>
             <div>
               <p style={{ fontSize: "13px", letterSpacing: "1.17px" }}>{doc.name}</p>

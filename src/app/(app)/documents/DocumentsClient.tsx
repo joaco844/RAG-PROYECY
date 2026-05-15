@@ -93,7 +93,11 @@ export default function DocumentsClient({
       });
       if (!res.ok) throw new Error("Error al guardar");
       const updated = await res.json();
-      setDocs((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      if (updated.projectId) {
+        setDocs((prev) => prev.filter((d) => d.id !== updated.id));
+      } else {
+        setDocs((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      }
       setModal(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error desconocido");
