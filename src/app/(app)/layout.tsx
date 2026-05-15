@@ -5,7 +5,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--space-black)" }}>
+    <div style={{ minHeight: "100vh" }}>
       <nav
         style={{
           position: "fixed",
