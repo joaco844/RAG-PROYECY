@@ -115,7 +115,7 @@ export default function CarpetasClient({ initialCarpetas }: { initialCarpetas: C
                 key={c.id}
                 style={{ display: "flex", alignItems: "center", gap: "16px", padding: "18px 0", borderTop: i === 0 ? "1px solid var(--ghost-border)" : undefined, borderBottom: "1px solid var(--ghost-border)", position: "relative" }}
               >
-                <div style={{ flex: 1 }}>
+                <div onClick={() => router.push(`/carpetas/${c.id}`)} style={{ flex: 1, cursor: "pointer" }}>
                   <p style={{ fontSize: "13px", letterSpacing: "1.17px" }}>{c.name}</p>
                   {c.description && (
                     <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.6)", marginTop: "4px" }}>{c.description}</p>

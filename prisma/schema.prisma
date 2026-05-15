@@ -42,6 +42,7 @@ model Project {
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   documents   Document[]
+  chatMessages ChatMessage[]
 }
 
 model Document {
@@ -84,4 +85,15 @@ model Chunk {
 
   documentId String
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }

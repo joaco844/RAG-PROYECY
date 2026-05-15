@@ -4,7 +4,6 @@ import Link from "next/link";
 const NAV_ITEMS = [
   { label: "Documents", href: "/documents" },
   { label: "Carpetas", href: "/carpetas" },
-  { label: "Chat", href: "/chat" },
 ];
 
 export default async function DashboardPage() {
@@ -19,7 +18,28 @@ export default async function DashboardPage() {
         overflow: "hidden",
       }}
     >
-      {/* Mars background */}
+      {/* Night sky — full background */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          zIndex: 0,
+          opacity: 0.5,
+          pointerEvents: "none",
+        }}
+      >
+        <source src="/nigth_sky_web.mp4" type="video/mp4" />
+      </video>
+
+      {/* Mars — right side */}
       <video
         autoPlay
         muted
@@ -32,18 +52,20 @@ export default async function DashboardPage() {
           height: "100%",
           width: "45%",
           objectFit: "cover",
+          zIndex: 1,
           pointerEvents: "none",
         }}
       >
         <source src="/mars_web.mp4" type="video/mp4" />
       </video>
 
-      {/* Dark overlay */}
+      {/* Gradient overlay */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background: "linear-gradient(to right, rgba(0,0,0,0.85) 35%, rgba(0,0,0,0.1) 100%)",
+          zIndex: 2,
           pointerEvents: "none",
         }}
       />
@@ -52,7 +74,7 @@ export default async function DashboardPage() {
       <div
         style={{
           position: "relative",
-          zIndex: 10,
+          zIndex: 3,
           padding: "60px 40px",
           display: "flex",
           flexDirection: "column",

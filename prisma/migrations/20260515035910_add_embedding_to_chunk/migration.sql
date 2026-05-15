@@ -1,2 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- AlterTable
-ALTER TABLE "Chunk" ADD COLUMN     "embedding" vector(768);
+ALTER TABLE "Chunk" ADD COLUMN IF NOT EXISTS "embedding" vector(3072);

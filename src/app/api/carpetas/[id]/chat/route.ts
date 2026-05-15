@@ -63,6 +63,31 @@ RESPUESTA:`;
     model: "gemini-2.5-flash",
     contents: prompt,
   });
+  await prisma.chatMessage.createMany({
+  data: [
+    { projectId: carpetaId, role: "user", content: question },
+    { projectId: carpetaId, role: "assistant", content: genResult.text ?? "" },
+  ],
+    });
 
   return NextResponse.json({ answer: genResult.text });
+}
+
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: carpetaId } = await params;
+
+  const carpeta = await prisma.project.findUnique({ where: { id: carpetaId } });
+  if (!carpeta || carpeta.userId !== session.user.id)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { projectId: carpetaId },
+    orderBy: { createdAt: "asc" },
+    select: { role: true, content: true },
+  });
+
+  return NextResponse.json(messages);
 }

@@ -164,7 +164,7 @@ export default function DocumentsClient({
                 <i className={fileIcon(doc.mimeType)} style={{ fontSize: "24px", color: "rgba(240,240,250,0.7)", flexShrink: 0 }} />
 
                 {/* Name + date */}
-                <div style={{ flex: 1 }}>
+                <div onClick={() => router.push(`/documents/${doc.id}`)} style={{ flex: 1, cursor: "pointer" }}>
                   <p style={{ fontSize: "13px", letterSpacing: "1.17px" }}>{doc.name}</p>
                   <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)", marginTop: "4px" }}>{formatDate(doc.createdAt)}</p>
                 </div>

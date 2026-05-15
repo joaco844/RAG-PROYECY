@@ -13,7 +13,7 @@ type Carpeta = {
   createdAt: string;
 };
 
-type Doc = { id: string; name: string; mimeType: string; createdAt: string };
+type Doc = { id: string; name: string; mimeType: string; createdAt: string; chunkCount: number };
 
 type Tab = "notas" | "documentos" | "chat";
 
@@ -41,17 +41,33 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [indexingDoc, setIndexingDoc] = useState<string | null>(null);
+  const [indexNotif, setIndexNotif] = useState<{ docId: string; ok: boolean } | null>(null);
+  const [showAsociar, setShowAsociar] = useState(false);
+  const [asociarDocs, setAsociarDocs] = useState<{ id: string; name: string; mimeType: string; createdAt: string }[]>([]);
+  const [asociarSearch, setAsociarSearch] = useState("");
+  const [asociarLoading, setAsociarLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatLoading]);
+
+  useEffect(() => {
+    if (tab !== "chat") return;
+    setHistoryLoading(true);
+    fetch(`/api/carpetas/${carpeta.id}/chat`)
+      .then((r) => r.json())
+      .then((data) => setMessages(data))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false));
+  }, [tab, carpeta.id]);
 
   async function sendMessage() {
     const q = chatInput.trim();
@@ -86,7 +102,7 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
       const res = await fetch("/api/documents", { method: "POST", body: form });
       if (!res.ok) throw new Error();
       const doc = await res.json();
-      setDocs((prev) => [doc, ...prev]);
+      setDocs((prev) => [{ ...doc, chunkCount: 0 }, ...prev]);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -106,11 +122,39 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
   async function indexDoc(docId: string) {
     setOpenMenu(null);
     setIndexingDoc(docId);
+    let ok = false;
     try {
-      await fetch(`/api/documents/${docId}/index`, { method: "POST" });
+      const res = await fetch(`/api/documents/${docId}/index`, { method: "POST" });
+      ok = res.ok;
+      if (ok) setDocs((prev) => prev.map((d) => d.id === docId ? { ...d, chunkCount: 1 } : d));
     } finally {
       setIndexingDoc(null);
+      setIndexNotif({ docId, ok });
+      setTimeout(() => setIndexNotif(null), 3000);
     }
+  }
+
+  async function openAsociar() {
+    setShowAsociar(true);
+    setAsociarSearch("");
+    setAsociarLoading(true);
+    try {
+      const res = await fetch("/api/documents");
+      const data = await res.json();
+      setAsociarDocs(data);
+    } finally {
+      setAsociarLoading(false);
+    }
+  }
+
+  async function asociar(docId: string, docName: string, mimeType: string, createdAt: string) {
+    await fetch(`/api/documents/${docId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ projectId: carpeta.id }),
+    });
+    setDocs((prev) => [{ id: docId, name: docName, mimeType, createdAt, chunkCount: 0 }, ...prev]);
+    setAsociarDocs((prev) => prev.filter((d) => d.id !== docId));
   }
 
   async function deleteDoc(docId: string) {
@@ -242,7 +286,10 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
 
           {tab === "documentos" && (
             <div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginBottom: "20px" }}>
+                <button className="btn-ghost" style={{ borderRadius: "8px", padding: "10px 20px", fontSize: "11px" }} onClick={openAsociar}>
+                  Asociar
+                </button>
                 <button className="btn-ghost" style={{ borderRadius: "8px", padding: "10px 20px", fontSize: "11px" }} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                   {uploading ? "Subiendo…" : "Agregar"}
                 </button>
@@ -252,37 +299,47 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
               {docs.length === 0 ? (
                 <p style={{ fontSize: "12px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)" }}>No hay documentos en esta carpeta.</p>
               ) : (
-                docs.map((doc, i) => (
-                  <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px 0", borderTop: i === 0 ? "1px solid var(--ghost-border)" : undefined, borderBottom: "1px solid var(--ghost-border)" }}>
-                    <i className={fileIcon(doc.mimeType)} style={{ fontSize: "20px", color: "rgba(240,240,250,0.7)", flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: "13px", letterSpacing: "1.17px" }}>{doc.name}</p>
-                      <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)", marginTop: "4px" }}>{formatDate(doc.createdAt)}</p>
-                    </div>
-                    <div style={{ position: "relative" }}>
-                      <button
-                        onClick={() => setOpenMenu(openMenu === doc.id ? null : doc.id)}
-                        style={{ background: "none", border: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "6px 10px", borderRadius: "6px", cursor: "pointer", fontSize: "14px", letterSpacing: "2px" }}
-                      >
-                        •••
-                      </button>
-                      {openMenu === doc.id && (
-                        <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#111", border: "1px solid var(--ghost-border)", borderRadius: "6px", overflow: "hidden", zIndex: 10, minWidth: "160px" }}>
-                          {[
-                            { label: "Ver", action: () => router.push(`/documents/${doc.id}?from=/carpetas/${carpeta.id}`) },
-                            { label: indexingDoc === doc.id ? "Indexando…" : "Indexar", action: () => indexDoc(doc.id), disabled: indexingDoc === doc.id },
-                            { label: "Desasociar", action: () => desasociar(doc.id) },
-                            { label: "Eliminar", action: () => deleteDoc(doc.id) },
-                          ].map((item) => (
-                            <button key={item.label} onClick={item.action} disabled={"disabled" in item && item.disabled} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "12px 16px", cursor: "pointer", fontSize: "11px", letterSpacing: "1.17px", fontFamily: "var(--font-display)", textTransform: "uppercase", opacity: "disabled" in item && item.disabled ? 0.5 : 1 }}>
-                              {item.label}
-                            </button>
-                          ))}
+                docs.map((doc, i) => {
+                  const isIndexed = doc.chunkCount > 0;
+                  const isIndexing = indexingDoc === doc.id;
+                  const notif = indexNotif?.docId === doc.id ? indexNotif : null;
+                  return (
+                    <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px 0", borderTop: i === 0 ? "1px solid var(--ghost-border)" : undefined, borderBottom: "1px solid var(--ghost-border)" }}>
+                      <i className={fileIcon(doc.mimeType)} style={{ fontSize: "20px", color: "rgba(240,240,250,0.7)", flexShrink: 0 }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: "13px", letterSpacing: "1.17px" }}>{doc.name}</p>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
+                          <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)" }}>{formatDate(doc.createdAt)}</p>
+                          {isIndexing && <span style={{ fontSize: "10px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)" }}>Indexando…</span>}
+                          {!isIndexing && notif && <span style={{ fontSize: "10px", letterSpacing: "1px", color: notif.ok ? "rgba(120,240,180,0.8)" : "rgba(240,100,100,0.8)" }}>{notif.ok ? "Indexado" : "Error al indexar"}</span>}
+                          {!isIndexing && !notif && isIndexed && <span style={{ fontSize: "10px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)" }}>Indexado</span>}
                         </div>
-                      )}
+                      </div>
+                      <div style={{ position: "relative" }}>
+                        <button
+                          onClick={() => setOpenMenu(openMenu === doc.id ? null : doc.id)}
+                          style={{ background: "none", border: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "6px 10px", borderRadius: "6px", cursor: "pointer", fontSize: "14px", letterSpacing: "2px" }}
+                        >
+                          •••
+                        </button>
+                        {openMenu === doc.id && (
+                          <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#111", border: "1px solid var(--ghost-border)", borderRadius: "6px", overflow: "hidden", zIndex: 10, minWidth: "160px" }}>
+                            {[
+                              { label: "Ver", action: () => router.push(`/documents/${doc.id}?from=/carpetas/${carpeta.id}`), disabled: false },
+                              { label: isIndexing ? "Indexando…" : isIndexed ? "Re-indexar" : "Indexar", action: () => indexDoc(doc.id), disabled: isIndexing },
+                              { label: "Desasociar", action: () => desasociar(doc.id), disabled: false },
+                              { label: "Eliminar", action: () => deleteDoc(doc.id), disabled: false },
+                            ].map((item) => (
+                              <button key={item.label} onClick={item.action} disabled={item.disabled} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "12px 16px", cursor: item.disabled ? "default" : "pointer", fontSize: "11px", letterSpacing: "1.17px", fontFamily: "var(--font-display)", textTransform: "uppercase", opacity: item.disabled ? 0.4 : 1 }}>
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -292,11 +349,13 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
 
               {/* Messages area */}
               <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "28px", paddingBottom: "8px" }}>
-                {messages.length === 0 && !chatLoading && (
+                {historyLoading ? (
+                  <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)", textAlign: "center", marginTop: "48px" }}>Cargando historial…</p>
+                ) : messages.length === 0 && !chatLoading ? (
                   <p style={{ fontSize: "12px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)", textAlign: "center", marginTop: "48px" }}>
                     Hacé una pregunta sobre los documentos de esta carpeta.
                   </p>
-                )}
+                ) : null}
 
                 {messages.map((msg, i) => (
                   <div
@@ -369,6 +428,59 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
           )}
         </div>
       </div>
+
+      {/* Modal Asociar */}
+      {showAsociar && (
+        <div
+          onClick={() => setShowAsociar(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "480px", maxHeight: "70vh", background: "#0a0a0a", border: "1px solid var(--ghost-border)", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ padding: "24px 28px", borderBottom: "1px solid var(--ghost-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: "11px", letterSpacing: "1.17px" }}>Asociar Documento</span>
+              <button onClick={() => setShowAsociar(false)} style={{ background: "none", border: "none", color: "rgba(240,240,250,0.4)", cursor: "pointer", fontSize: "16px" }}>✕</button>
+            </div>
+
+            <div style={{ padding: "16px 28px", borderBottom: "1px solid var(--ghost-border)" }}>
+              <input
+                className="input-ghost"
+                autoFocus
+                placeholder="Buscar documento…"
+                value={asociarSearch}
+                onChange={(e) => setAsociarSearch(e.target.value)}
+                style={{ width: "100%", fontSize: "13px", textTransform: "none", letterSpacing: "normal" }}
+              />
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {asociarLoading ? (
+                <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)", padding: "24px 28px" }}>Cargando…</p>
+              ) : asociarDocs.filter((d) => d.name.toLowerCase().includes(asociarSearch.toLowerCase())).length === 0 ? (
+                <p style={{ fontSize: "11px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)", padding: "24px 28px" }}>No hay documentos disponibles.</p>
+              ) : (
+                asociarDocs
+                  .filter((d) => d.name.toLowerCase().includes(asociarSearch.toLowerCase()))
+                  .map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => asociar(d.id, d.name, d.mimeType, d.createdAt)}
+                      style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", padding: "14px 28px", background: "none", border: "none", borderBottom: "1px solid var(--ghost-border)", color: "var(--spectral-white)", cursor: "pointer", textAlign: "left" }}
+                    >
+                      <i className={fileIcon(d.mimeType)} style={{ fontSize: "18px", color: "rgba(240,240,250,0.6)", flexShrink: 0 }} />
+                      <div>
+                        <p style={{ fontSize: "12px", letterSpacing: "1.17px" }}>{d.name}</p>
+                        <p style={{ fontSize: "10px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)", marginTop: "3px" }}>{formatDate(d.createdAt)}</p>
+                      </div>
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

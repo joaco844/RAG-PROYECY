@@ -19,13 +19,13 @@ export default async function CarpetaViewPage({ params }: { params: Promise<{ id
   const documents = await prisma.document.findMany({
     where: { projectId: id },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, mimeType: true, createdAt: true },
+    select: { id: true, name: true, mimeType: true, createdAt: true, _count: { select: { chunks: true } } },
   });
 
   return (
     <CarpetaViewClient
       carpeta={{ ...carpeta, createdAt: carpeta.createdAt.toISOString() }}
-      initialDocs={documents.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))}
+      initialDocs={documents.map((d) => ({ ...d, createdAt: d.createdAt.toISOString(), chunkCount: d._count.chunks }))}
     />
   );
 }

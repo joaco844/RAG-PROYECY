@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { signOut } from "@/auth";
+import NavLinks from "./NavLinks";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -31,6 +32,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         >
           RAG
         </span>
+
+        <NavLinks />
 
         <div style={{ display: "flex", alignItems: "center", gap: "32px" }}>
           <span style={{ fontSize: "12px", letterSpacing: "1px", color: "rgba(240,240,250,0.5)" }}>
