@@ -40,6 +40,7 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
   const [savingNotes, setSavingNotes] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [indexingDoc, setIndexingDoc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -100,6 +101,16 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
       body: JSON.stringify({ projectId: "" }),
     });
     setDocs((prev) => prev.filter((d) => d.id !== docId));
+  }
+
+  async function indexDoc(docId: string) {
+    setOpenMenu(null);
+    setIndexingDoc(docId);
+    try {
+      await fetch(`/api/documents/${docId}/index`, { method: "POST" });
+    } finally {
+      setIndexingDoc(null);
+    }
   }
 
   async function deleteDoc(docId: string) {
@@ -259,10 +270,11 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
                         <div style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", background: "#111", border: "1px solid var(--ghost-border)", borderRadius: "6px", overflow: "hidden", zIndex: 10, minWidth: "160px" }}>
                           {[
                             { label: "Ver", action: () => router.push(`/documents/${doc.id}?from=/carpetas/${carpeta.id}`) },
+                            { label: indexingDoc === doc.id ? "Indexando…" : "Indexar", action: () => indexDoc(doc.id), disabled: indexingDoc === doc.id },
                             { label: "Desasociar", action: () => desasociar(doc.id) },
                             { label: "Eliminar", action: () => deleteDoc(doc.id) },
                           ].map((item) => (
-                            <button key={item.label} onClick={item.action} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "12px 16px", cursor: "pointer", fontSize: "11px", letterSpacing: "1.17px", fontFamily: "var(--font-display)", textTransform: "uppercase" }}>
+                            <button key={item.label} onClick={item.action} disabled={"disabled" in item && item.disabled} style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", borderBottom: "1px solid var(--ghost-border)", color: "var(--spectral-white)", padding: "12px 16px", cursor: "pointer", fontSize: "11px", letterSpacing: "1.17px", fontFamily: "var(--font-display)", textTransform: "uppercase", opacity: "disabled" in item && item.disabled ? 0.5 : 1 }}>
                               {item.label}
                             </button>
                           ))}
@@ -276,8 +288,83 @@ export default function CarpetaViewClient({ carpeta: initial, initialDocs }: { c
           )}
 
           {tab === "chat" && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "200px" }}>
-              <p style={{ fontSize: "12px", letterSpacing: "1px", color: "rgba(240,240,250,0.4)" }}>Chat — próximamente.</p>
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: "0" }}>
+
+              {/* Messages area */}
+              <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "28px", paddingBottom: "8px" }}>
+                {messages.length === 0 && !chatLoading && (
+                  <p style={{ fontSize: "12px", letterSpacing: "1px", color: "rgba(240,240,250,0.3)", textAlign: "center", marginTop: "48px" }}>
+                    Hacé una pregunta sobre los documentos de esta carpeta.
+                  </p>
+                )}
+
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: msg.role === "user" ? "flex-end" : "flex-start",
+                      gap: "6px",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px", letterSpacing: "1.17px", color: "rgba(240,240,250,0.35)", fontFamily: "var(--font-display)" }}>
+                      {msg.role === "user" ? "VOS" : "IA"}
+                    </span>
+                    <div
+                      style={{
+                        maxWidth: "80%",
+                        padding: "14px 18px",
+                        border: "1px solid",
+                        borderColor: msg.role === "user" ? "rgba(240,240,250,0.25)" : "rgba(240,240,250,0.12)",
+                        background: msg.role === "user" ? "rgba(240,240,250,0.06)" : "transparent",
+                      }}
+                    >
+                      <p style={{ fontSize: "13px", lineHeight: "1.7", color: msg.role === "user" ? "var(--spectral-white)" : "rgba(240,240,250,0.85)", textTransform: "none", letterSpacing: "normal", margin: 0, whiteSpace: "pre-wrap" }}>
+                        {msg.content}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+                {chatLoading && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "6px" }}>
+                    <span style={{ fontSize: "10px", letterSpacing: "1.17px", color: "rgba(240,240,250,0.35)", fontFamily: "var(--font-display)" }}>IA</span>
+                    <div style={{ padding: "14px 18px", border: "1px solid rgba(240,240,250,0.12)" }}>
+                      <span style={{ fontSize: "13px", color: "rgba(240,240,250,0.4)", letterSpacing: "1px" }}>●●●</span>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* Input row */}
+              <div style={{ borderTop: "1px solid var(--ghost-border)", paddingTop: "20px", display: "flex", gap: "12px", alignItems: "flex-end", flexShrink: 0 }}>
+                <textarea
+                  className="input-ghost"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder="Preguntá sobre los documentos…"
+                  rows={2}
+                  style={{ flex: 1, resize: "none", fontSize: "13px", lineHeight: "1.6", fontFamily: "var(--font-body)", textTransform: "none", letterSpacing: "normal" }}
+                  disabled={chatLoading}
+                />
+                <button
+                  className="btn-ghost"
+                  onClick={sendMessage}
+                  disabled={chatLoading || !chatInput.trim()}
+                  style={{ borderRadius: "8px", padding: "12px 20px", fontSize: "11px", flexShrink: 0, alignSelf: "stretch", opacity: chatLoading || !chatInput.trim() ? 0.4 : 1 }}
+                >
+                  Enviar
+                </button>
+              </div>
             </div>
           )}
         </div>

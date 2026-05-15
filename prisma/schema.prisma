@@ -79,6 +79,7 @@ model Chunk {
   id         String   @id @default(cuid())
   content    String
   chunkIndex Int
+  embedding  Unsupported("vector(3072)")?
   createdAt  DateTime @default(now())
 
   documentId String
